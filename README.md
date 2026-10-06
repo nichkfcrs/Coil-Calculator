@@ -13,13 +13,7 @@ Dimensions in mm, density in kg/m³. The X factor (0–1) allows for gapping bet
  
 If profile/thickness is entered, the calculator also shows strip length, weight per metre and approximate number of wraps.
  
-## Hosting on GitHub Pages
- 
-1. Create a new public repository (e.g. `coil-calculator`).
-2. Upload `index.html` (and this README) to the repository.
-3. Go to **Settings → Pages**, set **Source** to "Deploy from a branch", choose `main` and `/ (root)`, then save.
-4. After a minute or so the calculator is live at `https://<your-username>.github.io/coil-calculator/`.
-## Embedding
+
  
 Add `?embed=1` to hide the page header and footer, then use an iframe:
  
