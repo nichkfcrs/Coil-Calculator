@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coil Weight Calculator</title>
+<style>
+  :root {
+    --bg: #f3f4f1;
+    --panel: #ffffff;
+    --ink: #1c2124;
+    --muted: #5d676d;
+    --line: #d5d9d6;
+    --accent: #c2410c;
+    --accent-soft: #fdebe1;
+    --steel: #8a969c;
+    --steel-dark: #5a656b;
+    --error: #b42318;
+    --good: #1a7f4b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #15191b;
+      --panel: #1e2427;
+      --ink: #eceeed;
+      --muted: #9aa5ab;
+      --line: #333c41;
+      --accent: #fb923c;
+      --accent-soft: #3a2616;
+      --steel: #7d8a91;
+      --steel-dark: #aab4b9;
+      --error: #f97066;
+      --good: #4ade80;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 1020px; margin: 0 auto; padding: 28px 16px 40px; }
+  body.multi .wrap { max-width: 1440px; }
+  header h1 { margin: 0 0 4px; font-size: 1.6rem; letter-spacing: -0.01em; }
+  header p { margin: 0 0 18px; color: var(--muted); }
+  .tabs { display: inline-flex; gap: 4px; padding: 4px; margin-bottom: 18px; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; }
+  .tabs button { border: 0; background: none; padding: 7px 14px; }
+  .tabs button[aria-selected="true"] { background: var(--accent); color: #fff; }
+  @media (prefers-color-scheme: dark) { .tabs button[aria-selected="true"] { color: #1b1208; } }
+  .grid { display: grid; grid-template-columns: 1.05fr 1fr; gap: 18px; align-items: start; }
+  @media (max-width: 780px) { .grid { grid-template-columns: 1fr; } }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 20px;
+  }
+  .panel + .panel { margin-top: 18px; }
+  h2 {
+    margin: 0 0 14px;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--muted);
+  }
+  h2.sep { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .field.full { grid-column: 1 / -1; }
+  @media (max-width: 440px) { .fields { grid-template-columns: 1fr; } }
+  label { display: block; font-size: 0.86rem; font-weight: 600; margin-bottom: 5px; }
+  label small { font-weight: 400; color: var(--muted); }
+  .input { position: relative; }
+  input, select {
+    width: 100%;
+    padding: 10px 12px;
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+  }
+  .input input { padding-right: 62px; }
+  .input .u {
+    position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+    color: var(--muted); font-size: 0.85rem; pointer-events: none;
+  }
+  input:focus, select:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .hint { font-size: 0.8rem; color: var(--muted); margin-top: 5px; }
+  .error { color: var(--error); font-size: 0.88rem; margin-top: 14px; }
+  .error:empty { display: none; }
+  .warn {
+    margin-top: 12px; padding: 9px 12px; border-radius: 7px;
+    background: var(--accent-soft); font-size: 0.85rem;
+  }
+  .warn:empty { display: none; }
+
+  .result { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: center; padding: 6px 0 14px; border-bottom: 1px solid var(--line); }
+  .result .big {
+    font-size: 2.5rem; font-weight: 700; line-height: 1.1;
+    font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
+  }
+  .result .big span { font-size: 1.05rem; font-weight: 600; color: var(--muted); margin-left: 4px; }
+  .result .sub { color: var(--muted); font-size: 0.85rem; }
+  .result .foot { grid-column: 1 / -1; }
+  .badge {
+    display: inline-block; padding: 3px 10px; border-radius: 999px;
+    background: var(--accent-soft); font-size: 0.8rem; font-weight: 600;
+  }
+  .badge:empty { display: none; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+  td, th { padding: 7px 0; border-bottom: 1px dashed var(--line); text-align: left; font-weight: 400; }
+  td:not(:first-child), th:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; padding-left: 10px; white-space: nowrap; }
+  td:not(:first-child) { font-weight: 600; }
+  th { font-size: 0.78rem; color: var(--muted); }
+  tr:last-child td { border-bottom: 0; }
+  tr.used td:first-child::after { content: " (used)"; color: var(--accent); font-weight: 600; }
+  .pos { color: var(--error); } .ok { color: var(--good); }
+  .diagram { display: block; width: 100%; max-width: 200px; margin: 14px auto 6px; }
+  .actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  button {
+    font: inherit; font-size: 0.88rem; font-weight: 600; cursor: pointer;
+    padding: 9px 14px; border-radius: 7px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+  }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  @media (prefers-color-scheme: dark) { button.primary { color: #1b1208; } }
+  [hidden] { display: none !important; }
+  footer { margin-top: 20px; font-size: 0.8rem; color: var(--muted); }
+
+  /* Multiple coils table */
+  .scroll { overflow-x: auto; margin-top: 12px; }
+  .mt { min-width: 1240px; font-size: 0.88rem; }
+  .mt th { padding: 4px 3px; text-align: left !important; white-space: normal !important; vertical-align: bottom; line-height: 1.2; }
+  .mt td { padding: 3px; border-bottom: 0; }
+  .mt input, .mt select { padding: 7px 8px; min-width: 74px; }
+  .mt select { min-width: 150px; }
+  .mt td.o { padding: 3px 8px; text-align: right; }
+  .mt th.o { text-align: right !important; padding-right: 8px; }
+  .mt td.how { white-space: normal; text-align: left; font-weight: 400; font-size: 0.8rem; min-width: 130px; }
+  .mt tfoot td { border-top: 2px solid var(--line); padding: 10px 8px 3px; font-weight: 700; }
+  .mt button.x { padding: 4px 10px; }
+
+  /* Embed mode: add ?embed=1 to the URL */
+  body.embed { background: transparent; }
+  body.embed .wrap { padding: 0; }
+  body.embed header, body.embed footer { display: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Coil Weight Calculator</h1>
+    <p>Estimate coil weight and lineal metres from dimensions when the actual weight isn't known.</p>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button type="button" role="tab" id="tabSingle" aria-selected="true">Single coil</button>
+    <button type="button" role="tab" id="tabMulti" aria-selected="false">Multiple coils</button>
+  </div>
+
+  <div class="grid" id="single">
+    <div>
+      <section class="panel">
+        <h2>Material</h2>
+        <div class="fields">
+          <div class="field">
+            <label for="material">Material</label>
+            <select id="material"></select>
+          </div>
+          <div class="field">
+            <label for="density">Density</label>
+            <div class="input"><input id="density" type="number" min="0" step="any" inputmode="decimal"><span class="u">g/cm³</span></div>
+          </div>
+          <div class="field">
+            <label for="thickness">Metal thickness</label>
+            <div class="input"><input id="thickness" type="number" min="0" step="any" inputmode="decimal" value="0.7"><span class="u">mm</span></div>
+          </div>
+          <div class="field">
+            <label for="width">Width / girth</label>
+            <div class="input"><input id="width" type="number" min="0" step="any" inputmode="decimal" value="1000"><span class="u">mm</span></div>
+          </div>
+        </div>
+
+        <h2 class="sep">Coil measurements</h2>
+        <div class="fields">
+          <div class="field">
+            <label for="id">Inner diameter</label>
+            <div class="input"><input id="id" type="number" min="0" step="any" inputmode="decimal" value="530"><span class="u">mm</span></div>
+          </div>
+          <div class="field">
+            <label for="od">Outer diameter</label>
+            <div class="input"><input id="od" type="number" min="0" step="any" inputmode="decimal" value="685"><span class="u">mm</span></div>
+          </div>
+          <div class="field">
+            <label for="wraps">Number of wraps <small>(recommended)</small></label>
+            <div class="input"><input id="wraps" type="number" min="0" step="any" inputmode="decimal" placeholder="count"><span class="u">wraps</span></div>
+          </div>
+          <div class="field">
+            <label for="gap">Gap between layers</label>
+            <div class="input"><input id="gap" type="number" min="0" step="0.01" inputmode="decimal" value="0.10"><span class="u">mm</span></div>
+          </div>
+          <div class="field full hint" style="margin-top:0">
+            Most accurate: count the wraps on the coil face and measure both diameters; the gap is then measured, not assumed.
+            Without a wrap count, the result relies on the gap value and a precise outer diameter.
+          </div>
+        </div>
+        <div class="error" id="error" role="alert"></div>
+        <div class="warn" id="warn" role="status"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Check against a weighed coil <small style="text-transform:none;letter-spacing:0">(optional)</small></h2>
+        <div class="fields">
+          <div class="field">
+            <label for="actual">Actual weight</label>
+            <div class="input"><input id="actual" type="number" min="0" step="any" inputmode="decimal" placeholder="from the scale"><span class="u">kg</span></div>
+          </div>
+          <div class="field">
+            <label>Difference</label>
+            <div style="padding:10px 0;font-weight:700;font-variant-numeric:tabular-nums" id="delta">–</div>
+          </div>
+        </div>
+        <div class="hint" id="calib"></div>
+        <div class="actions"><button id="useGap" type="button" hidden>Use this gap</button></div>
+      </section>
+    </div>
+
+    <section class="panel">
+      <h2>Estimate</h2>
+      <div class="result">
+        <div>
+          <div class="big"><output id="kg">–</output><span>kg</span></div>
+          <div class="sub">weight (<output id="tonnes">–</output> t)</div>
+        </div>
+        <div>
+          <div class="big"><output id="length">–</output><span>m</span></div>
+          <div class="sub">lineal metres</div>
+        </div>
+        <div class="foot"><span class="badge" id="method"></span></div>
+      </div>
+
+      <svg class="diagram" viewBox="0 0 220 220" role="img" aria-label="Coil cross-section, to scale">
+        <circle cx="110" cy="110" r="100" fill="var(--steel)" stroke="var(--steel-dark)" stroke-width="1.5"/>
+        <g id="rings" fill="none" stroke="var(--steel-dark)" stroke-width="0.6" opacity="0.55"></g>
+        <circle id="bore" cx="110" cy="110" r="34" fill="var(--panel)" stroke="var(--steel-dark)" stroke-width="1.5"/>
+      </svg>
+
+      <h2 class="sep">Methods compared</h2>
+      <table id="methods"></table>
+
+      <h2 class="sep">Details</h2>
+      <table>
+        <tr><td>Weight per lineal metre</td><td id="perMetre">–</td></tr>
+        <tr><td>Area of strip</td><td id="area">–</td></tr>
+        <tr><td>Wraps</td><td id="wrapsOut">–</td></tr>
+        <tr><td>Space per wrap (metal + gap)</td><td id="pitch">–</td></tr>
+        <tr><td>Gap between layers</td><td id="gapOut">–</td></tr>
+        <tr><td>X factor (metal share of coil)</td><td id="xf">–</td></tr>
+      </table>
+
+      <h2 class="sep">How much a measurement error costs</h2>
+      <table id="sens"></table>
+
+      <div class="actions">
+        <button class="primary" id="copy" type="button">Copy result</button>
+        <button id="addToList" type="button">Add to coil list</button>
+        <button id="link" type="button">Copy link</button>
+      </div>
+    </section>
+  </div>
+
+  <div id="multi" hidden>
+    <section class="panel">
+      <h2>Coil list</h2>
+      <div class="hint" style="margin-top:0">
+        One row per coil. Fill in the outer diameter, the wrap count, or both. To bring coils in from Excel, copy the cells in the same column order and paste into the first cell of a row.
+      </div>
+      <div class="scroll">
+        <table class="mt">
+          <thead id="mhead"></thead>
+          <tbody id="mbody"></tbody>
+          <tfoot id="mfoot"></tfoot>
+        </table>
+      </div>
+      <div class="actions">
+        <button class="primary" id="addRow" type="button">Add coil</button>
+        <button id="csv" type="button">Download CSV</button>
+        <button id="copyTable" type="button">Copy for Excel</button>
+        <button id="clearRows" type="button">Clear list</button>
+      </div>
+    </section>
+  </div>
+
+  <footer>Estimate only. Actual weight and length vary with winding tension, thickness tolerance, coatings and films. Confirm on a scale where weight is commercially or safety critical.</footer>
+</div>
+
+<script>
+// ---- Edit this list to add or change materials (density in g/cm³) ----
+const MATERIALS = [
+  { name: "VM Zinc (titanium zinc)",   density: 7.18 },
+  { name: "Copper",                    density: 8.95 },
+  { name: "Aluminium",                 density: 2.70 },
+  { name: "Carbon / galvanised steel", density: 7.85 },
+  { name: "Stainless steel 304",       density: 7.93 },
+  { name: "Stainless steel 316",       density: 7.98 },
+  { name: "Brass",                     density: 8.50 },
+  { name: "Custom",                    density: null }
+];
+const DEFAULT_GAP = "0.10";
+const TOLERANCE_KG = 5;
+
+// ---- The calculation (lengths in mm, density in kg/m³ internally) ----
+// Each method works out lineal metres, then weight = length × width × thickness × density.
+//   wraps   : length = π × N × (ID + OD) / 2            (no gap assumption)
+//   gap     : length = π/4 × (OD² − ID²) / (t + gap)    (same as the X factor formula, X = t / (t + gap))
+//   wrapgap : length = π × N × (ID + (t + gap) × N)     (no outer diameter needed)
+function coilCalc({ density, width, thickness: t, id, od, wraps: N, gap }) {
+  const kgPerM = width * t * density / 1e6;
+  const hasOD = od > id, hasN = N > 0, hasGap = gap >= 0;
+  const p = t + gap;
+  const methods = [];
+  const add = (key, name, short, lengthMm, sens) =>
+    methods.push({ key, name, short, length: lengthMm / 1000, kg: lengthMm / 1000 * kgPerM, sens });
+
+  if (hasN && hasOD) add("wraps", "Wrap count + both diameters", "Wraps + diameters", Math.PI * N * (id + od) / 2, [
+    ["1 mm on outer diameter", Math.PI * N / 2 / 1000],
+    ["1 wrap miscounted", Math.PI * (id + od) / 2 / 1000]
+  ]);
+  if (hasOD && hasGap) add("gap", "Diameters + gap", "Diameters + gap", Math.PI / 4 * (od * od - id * id) / p, [
+    ["1 mm on outer diameter", Math.PI / 2 * od / p / 1000],
+    ["0.01 mm on gap", Math.PI / 4 * (od * od - id * id) / p / 1000 * 0.01 / p]
+  ]);
+  if (hasN && hasGap) add("wrapgap", "Wrap count + inner diameter + gap", "Wraps + gap", Math.PI * N * (id + p * N), [
+    ["1 wrap miscounted", Math.PI * (id + 2 * p * N) / 1000],
+    ["0.01 mm on gap", Math.PI * N * N * 0.01 / 1000]
+  ]);
+
+  const out = { kgPerM, methods, best: methods[0] || null };
+  if (hasN && hasOD) {                       // gap measured from the coil itself
+    out.pitch = (od - id) / (2 * N); out.gap = out.pitch - t; out.gapSource = "measured";
+    out.wraps = N; out.od = od;
+  } else if (hasGap && (hasOD || hasN)) {    // gap assumed
+    out.pitch = p; out.gap = gap; out.gapSource = "assumed";
+    out.wraps = hasN ? N : (od - id) / 2 / p;
+    out.od = hasOD ? od : id + 2 * p * N;
+  }
+  return out;
+}
+
+// Gap that makes the diameters formula match a weighed coil
+function impliedGap({ density, width, thickness: t, id, od }, actualKg) {
+  const lengthMm = actualKg / (width * t * density / 1e6) * 1000;
+  return Math.PI / 4 * (od * od - id * id) / lengthMm - t;
+}
+
+// Density is entered in g/cm³; a value over 100 is taken as kg/m³ (old links, pasted data)
+const toKgM3 = d => d > 100 ? d : d * 1000;
+
+const FIELDS = ["density", "width", "thickness", "id", "od", "wraps", "gap", "actual"];
+
+// Takes raw text values, returns { err } or { v, r }
+function evaluate(raw) {
+  const v = {};
+  FIELDS.forEach(k => v[k] = parseFloat(raw[k]));
+  const hasOD = v.od > 0, hasN = v.wraps > 0, hasGap = v.gap >= 0;
+  let err = "";
+  if (!(v.density > 0)) err = "Enter a density greater than 0.";
+  else if (!(v.thickness > 0)) err = "Enter the metal thickness.";
+  else if (!(v.width > 0)) err = "Enter the width.";
+  else if (!(v.id > 0)) err = "Enter the inner diameter.";
+  else if (!hasOD && !hasN) err = "Enter the outer diameter, the number of wraps, or both.";
+  else if (hasOD && v.od <= v.id) err = "Outer diameter must be larger than inner diameter.";
+  else if (!(hasOD && hasN) && !hasGap) err = "Enter the gap between layers, or give both the wrap count and outer diameter.";
+  if (err) return { err };
+  v.density = toKgM3(v.density);
+  return { v, r: coilCalc(v), hasOD, hasN };
+}
+
+const $ = id => document.getElementById(id);
+const fmt = (n, d = 0) => n.toLocaleString("en-AU", { minimumFractionDigits: d, maximumFractionDigits: d });
+const signed = (n, d = 1) => (n > 0 ? "+" : n < 0 ? "−" : "") + fmt(Math.abs(n), d);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const matOptions = MATERIALS.map((m, i) => `<option value="${i}">${esc(m.name)}</option>`).join("");
+const matIndexForDensity = d => {
+  const g = toKgM3(parseFloat(d)) / 1000;
+  const i = MATERIALS.findIndex(m => m.density && Math.abs(m.density - g) < 1e-6);
+  return i >= 0 ? i : MATERIALS.length - 1;
+};
+
+function flash(btn, text) {
+  const old = btn.dataset.label || (btn.dataset.label = btn.textContent);
+  btn.textContent = text;
+  setTimeout(() => btn.textContent = old, 1400);
+}
+function copyText(text, btn) {
+  if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => flash(btn, "Copied"), () => flash(btn, "Copy blocked"));
+  else flash(btn, "Copy not supported");
+}
+
+// =================== Single coil ===================
+$("material").innerHTML = matOptions;
+$("density").value = MATERIALS[0].density;
+
+const params = new URLSearchParams(location.search);
+if (params.get("embed") === "1") document.body.classList.add("embed");
+FIELDS.forEach(k => { if (params.has(k)) $(k).value = params.get(k); });
+if (parseFloat($("density").value) > 100) $("density").value = parseFloat($("density").value) / 1000;
+$("material").value = matIndexForDensity($("density").value);
+
+function drawDiagram(id, od) {
+  const R = 100, r = Math.max(2, Math.min(98, R * id / od));
+  $("bore").setAttribute("r", r);
+  let rings = "";
+  const n = Math.max(2, Math.round((R - r) / 6));
+  for (let i = 1; i < n; i++) rings += `<circle cx="110" cy="110" r="${(r + (R - r) * i / n).toFixed(1)}"/>`;
+  $("rings").innerHTML = rings;
+}
+
+function clearOutputs() {
+  ["kg", "tonnes", "length", "perMetre", "area", "wrapsOut", "pitch", "gapOut", "xf", "delta"].forEach(k => $(k).textContent = "–");
+  ["method", "warn", "calib"].forEach(k => $(k).textContent = "");
+  $("methods").innerHTML = ""; $("sens").innerHTML = "";
+  $("useGap").hidden = true;
+}
+
+const singleRaw = () => Object.fromEntries(FIELDS.map(k => [k, $(k).value]));
+let last = null, suggestedGap = null;
+function update() {
+  const e = evaluate(singleRaw());
+  $("error").textContent = e.err || "";
+  if (e.err) { last = null; clearOutputs(); return; }
+  const { v, r, hasOD, hasN } = e, best = r.best;
+  last = e;
+  $("kg").textContent = fmt(best.kg, 1);
+  $("tonnes").textContent = fmt(best.kg / 1000, 3);
+  $("length").textContent = fmt(best.length, 1);
+  $("method").textContent = "Method: " + best.name.toLowerCase();
+
+  const actual = v.actual > 0 ? v.actual : null;
+  const deltaCell = kg => {
+    if (!actual) return "";
+    const d = kg - actual;
+    return `<td class="${Math.abs(d) <= TOLERANCE_KG ? "ok" : "pos"}">${signed(d)} kg</td>`;
+  };
+  $("methods").innerHTML =
+    `<tr><th>Method</th><th>Weight</th><th>Length</th>${actual ? "<th>vs actual</th>" : ""}</tr>` +
+    r.methods.map(m => `<tr class="${m === best ? "used" : ""}"><td>${m.name}</td><td>${fmt(m.kg, 1)} kg</td><td>${fmt(m.length, 1)} m</td>${deltaCell(m.kg)}</tr>`).join("");
+
+  $("perMetre").textContent = fmt(r.kgPerM, 3) + " kg/m";
+  $("area").textContent = fmt(best.length * v.width / 1000, 1) + " m²";
+  $("wrapsOut").textContent = fmt(r.wraps, 1) + (hasN ? " (counted)" : " (estimated)");
+  $("pitch").textContent = fmt(r.pitch, 3) + " mm";
+  $("gapOut").textContent = fmt(r.gap, 3) + " mm (" + r.gapSource + ")";
+  $("xf").textContent = fmt(v.thickness / r.pitch, 3);
+  $("sens").innerHTML = best.sens.map(([what, m]) => `<tr><td>${what}</td><td>± ${fmt(m * r.kgPerM, 1)} kg</td><td>± ${fmt(m, 2)} m</td></tr>`).join("");
+  drawDiagram(v.id, r.od);
+
+  let warn = "";
+  if (r.gapSource === "measured" && r.gap < 0)
+    warn = "The wrap count and diameters don't agree: that many wraps of this thickness would not fit. Check the count, thickness or diameters.";
+  else if (r.gapSource === "measured" && r.gap > v.thickness)
+    warn = "The measured gap is larger than the metal thickness, which is unusually loose. Check the wrap count and diameters.";
+  else if (best.key === "gap")
+    warn = "This result depends on an assumed gap and a precise outer diameter. Add a wrap count for a tighter estimate.";
+  $("warn").textContent = warn;
+
+  suggestedGap = null;
+  if (actual) {
+    const d = best.kg - actual;
+    $("delta").innerHTML = `<span class="${Math.abs(d) <= TOLERANCE_KG ? "ok" : "pos"}">${signed(d)} kg (${signed(d / actual * 100, 2)}%)</span>`;
+    if (hasOD) {
+      const g = impliedGap(v, actual);
+      if (g >= 0) {
+        suggestedGap = Math.round(g * 1000) / 1000;
+        $("calib").textContent = `Without a wrap count, a gap of ${fmt(g, 3)} mm (X factor ${fmt(v.thickness / (v.thickness + g), 3)}) makes these diameters match the scale.`;
+      } else {
+        $("calib").textContent = "The scale weight is more than solid metal of these dimensions would weigh. Check the diameters, thickness and density.";
+      }
+    } else $("calib").textContent = "";
+  } else {
+    $("delta").textContent = "–";
+    $("calib").textContent = "Enter the scale weight of a coil you have measured to see how close the formula is.";
+  }
+  $("useGap").hidden = suggestedGap === null;
+}
+
+$("material").addEventListener("change", () => {
+  const m = MATERIALS[$("material").value];
+  if (m.density) $("density").value = m.density; else $("density").focus();
+  update();
+});
+$("density").addEventListener("input", () => { $("material").value = matIndexForDensity($("density").value); update(); });
+FIELDS.filter(k => k !== "density").forEach(k => $(k).addEventListener("input", update));
+$("useGap").addEventListener("click", () => { if (suggestedGap !== null) { $("gap").value = suggestedGap; update(); } });
+
+$("copy").addEventListener("click", e => {
+  if (!last) return;
+  const { v, r } = last, b = r.best;
+  const name = MATERIALS[$("material").value].name;
+  let t = `Coil estimate: ${fmt(b.kg, 1)} kg, ${fmt(b.length, 1)} lineal metres (${b.name.toLowerCase()})\n` +
+          `${name}, ${$("density").value} g/cm³ | T ${v.thickness} mm | W ${v.width} mm | ID ${v.id} mm`;
+  if (v.od > 0) t += ` | OD ${v.od} mm`;
+  if (v.wraps > 0) t += ` | ${v.wraps} wraps`;
+  t += ` | gap ${fmt(r.gap, 3)} mm (${r.gapSource})`;
+  if (v.actual > 0) t += `\nActual ${fmt(v.actual, 1)} kg, difference ${signed(b.kg - v.actual)} kg`;
+  copyText(t, e.currentTarget);
+});
+$("link").addEventListener("click", e => {
+  const p = new URLSearchParams();
+  FIELDS.forEach(k => { if ($(k).value !== "") p.set(k, $(k).value); });
+  copyText(location.origin + location.pathname + "?" + p.toString(), e.currentTarget);
+});
+
+// =================== Multiple coils ===================
+const COLS = [
+  { k: "ref",       label: "Coil ref" },
+  { k: "mat",       label: "Material" },
+  { k: "density",   label: "Density g/cm³" },
+  { k: "thickness", label: "Thickness mm" },
+  { k: "width",     label: "Width mm" },
+  { k: "id",        label: "Inner dia. mm" },
+  { k: "od",        label: "Outer dia. mm" },
+  { k: "wraps",     label: "Wraps" },
+  { k: "gap",       label: "Gap mm" },
+  { k: "actual",    label: "Actual kg" }
+];
+const STORE = "coilCalculatorRows";
+const blankRow = from => ({
+  ref: "", mat: from ? from.mat : "0", density: from ? from.density : String(MATERIALS[0].density),
+  thickness: from ? from.thickness : "", width: from ? from.width : "", id: "", od: "", wraps: "",
+  gap: from ? from.gap : DEFAULT_GAP, actual: ""
+});
+const rowIsEmpty = r => !r.ref && !r.id && !r.od && !r.wraps && !r.actual;
+
+let rows = [];
+try { rows = JSON.parse(localStorage.getItem(STORE)) || []; } catch (_) {}
+if (!Array.isArray(rows) || !rows.length) rows = [blankRow()];
+let results = [];
+function save() { try { localStorage.setItem(STORE, JSON.stringify(rows)); } catch (_) {} }
+
+$("mhead").innerHTML = "<tr>" + COLS.map(c => `<th>${c.label}</th>`).join("") +
+  `<th class="o">Weight kg</th><th class="o">Lineal m</th><th>Method</th><th class="o">vs actual kg</th><th></th></tr>`;
+
+function renderRows() {
+  $("mbody").innerHTML = rows.map((row, i) => `<tr data-i="${i}">` + COLS.map(c =>
+    c.k === "mat" ? `<td><select data-k="mat" aria-label="Material">${matOptions}</select></td>` :
+    c.k === "ref" ? `<td><input data-k="ref" type="text" aria-label="${c.label}" value="${esc(row.ref)}"></td>` :
+    `<td><input data-k="${c.k}" type="number" step="any" min="0" inputmode="decimal" aria-label="${c.label}" value="${esc(row[c.k])}"></td>`
+  ).join("") + `<td class="o kg"></td><td class="o m"></td><td class="how"></td><td class="o diff"></td>` +
+    `<td><button class="x" type="button" aria-label="Remove coil" title="Remove coil">×</button></td></tr>`).join("");
+  [...$("mbody").children].forEach((tr, i) => tr.querySelector("select").value = rows[i].mat);
+  results = rows.map(() => null);
+  rows.forEach((_, i) => calcRow(i));
+  totals();
+}
+
+function calcRow(i) {
+  const tr = $("mbody").children[i], row = rows[i];
+  const cell = c => tr.querySelector("." + c);
+  let kg = "", m = "", how = "", diff = "", diffCls = "", howCls = "";
+  results[i] = null;
+  if (!(rowIsEmpty(row))) {
+    const e = evaluate(row);
+    if (e.err) { how = e.err; howCls = "pos"; }
+    else {
+      const b = e.r.best;
+      results[i] = { kg: b.kg, m: b.length, method: b.short, actual: e.v.actual > 0 ? e.v.actual : null };
+      kg = fmt(b.kg, 1); m = fmt(b.length, 1); how = b.short;
+      if (e.r.gapSource === "measured" && e.r.gap < 0) { how += " – count and diameters don't agree"; howCls = "pos"; }
+      if (results[i].actual) { const d = b.kg - results[i].actual; diff = signed(d); diffCls = Math.abs(d) <= TOLERANCE_KG ? "ok" : "pos"; }
+    }
+  }
+  cell("kg").textContent = kg; cell("m").textContent = m;
+  cell("how").textContent = how; cell("how").className = "how " + howCls;
+  cell("diff").textContent = diff; cell("diff").className = "o diff " + diffCls;
+}
+
+function totals() {
+  const ok = results.filter(Boolean), weighed = ok.filter(r => r.actual);
+  const sum = (a, k) => a.reduce((s, r) => s + r[k], 0);
+  const d = sum(weighed, "kg") - sum(weighed, "actual");
+  $("mfoot").innerHTML = `<tr><td colspan="${COLS.length}">Total, ${ok.length} coil${ok.length === 1 ? "" : "s"}</td>` +
+    `<td class="o">${ok.length ? fmt(sum(ok, "kg"), 1) : ""}</td><td class="o">${ok.length ? fmt(sum(ok, "m"), 1) : ""}</td><td></td>` +
+    `<td class="o ${weighed.length ? (Math.abs(d) <= TOLERANCE_KG * weighed.length ? "ok" : "pos") : ""}">${weighed.length ? signed(d) : ""}</td><td></td></tr>`;
+}
+
+$("mbody").addEventListener("input", ev => {
+  const tr = ev.target.closest("tr"), k = ev.target.dataset.k; if (!tr || !k) return;
+  const i = +tr.dataset.i, row = rows[i];
+  row[k] = ev.target.value;
+  if (k === "mat") {
+    const m = MATERIALS[row.mat];
+    if (m.density) { row.density = String(m.density); tr.querySelector('[data-k="density"]').value = row.density; }
+  } else if (k === "density") {
+    row.mat = String(matIndexForDensity(row.density)); tr.querySelector("select").value = row.mat;
+  }
+  calcRow(i); totals(); save();
+});
+$("mbody").addEventListener("click", ev => {
+  if (!ev.target.classList.contains("x")) return;
+  rows.splice(+ev.target.closest("tr").dataset.i, 1);
+  if (!rows.length) rows = [blankRow()];
+  renderRows(); save();
+});
+// Paste a block of cells copied from a spreadsheet
+$("mbody").addEventListener("paste", ev => {
+  const text = (ev.clipboardData || window.clipboardData).getData("text");
+  if (!/[\t\n]/.test(text.trim())) return;
+  ev.preventDefault();
+  const tr = ev.target.closest("tr"), startRow = +tr.dataset.i;
+  const startCol = Math.max(0, COLS.findIndex(c => c.k === ev.target.dataset.k));
+  text.replace(/\r/g, "").split("\n").filter(l => l.trim() !== "").forEach((line, r) => {
+    const i = startRow + r;
+    if (!rows[i]) rows[i] = blankRow(rows[i - 1]);
+    line.split("\t").forEach((val, c) => {
+      const col = COLS[startCol + c]; if (!col) return;
+      val = val.trim();
+      if (col.k === "mat") {
+        const idx = MATERIALS.findIndex(m => val && m.name.toLowerCase().includes(val.toLowerCase()));
+        if (idx >= 0) { rows[i].mat = String(idx); if (MATERIALS[idx].density) rows[i].density = String(MATERIALS[idx].density); }
+      } else if (col.k === "ref") rows[i].ref = val;
+      else {
+        const n = val.replace(/,/g, "");
+        if (n === "" || isNaN(parseFloat(n))) return;
+        rows[i][col.k] = String(parseFloat(n));
+        if (col.k === "density") rows[i].mat = String(matIndexForDensity(n));
+      }
+    });
+  });
+  renderRows(); save();
+});
+
+$("addRow").addEventListener("click", () => {
+  rows.push(blankRow(rows[rows.length - 1]));
+  renderRows(); save();
+  $("mbody").lastElementChild.querySelector("input").focus();
+});
+let clearArmed = false;
+$("clearRows").addEventListener("click", e => {
+  if (!clearArmed) { clearArmed = true; e.currentTarget.textContent = "Click again to clear"; setTimeout(() => { clearArmed = false; $("clearRows").textContent = "Clear list"; }, 3000); return; }
+  clearArmed = false; e.currentTarget.textContent = "Clear list";
+  rows = [blankRow()]; renderRows(); save();
+});
+
+function tableData() {
+  const head = [...COLS.map(c => c.label), "Weight kg", "Lineal m", "Method", "vs actual kg"];
+  const body = rows.map((row, i) => {
+    const r = results[i];
+    return [...COLS.map(c => c.k === "mat" ? MATERIALS[row.mat].name : row[c.k]),
+      r ? r.kg.toFixed(1) : "", r ? r.m.toFixed(1) : "", r ? r.method : "", r && r.actual ? (r.kg - r.actual).toFixed(1) : ""];
+  });
+  return [head, ...body];
+}
+$("copyTable").addEventListener("click", e => copyText(tableData().map(r => r.join("\t")).join("\n"), e.currentTarget));
+$("csv").addEventListener("click", () => {
+  const csv = tableData().map(r => r.map(c => /[",\n]/.test(c) ? `"${String(c).replace(/"/g, '""')}"` : c).join(",")).join("\r\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv" }));
+  a.download = "coil-weights.csv";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+
+$("addToList").addEventListener("click", e => {
+  if (!last) { flash(e.currentTarget, "Fix inputs first"); return; }
+  const row = { ref: "", mat: $("material").value, ...singleRaw() };
+  if (rows.length === 1 && rowIsEmpty(rows[0])) rows[0] = row; else rows.push(row);
+  renderRows(); save();
+  flash(e.currentTarget, "Added");
+});
+
+// =================== Tabs ===================
+function setMode(multi) {
+  $("single").hidden = multi; $("multi").hidden = !multi;
+  $("tabSingle").setAttribute("aria-selected", String(!multi));
+  $("tabMulti").setAttribute("aria-selected", String(multi));
+  document.body.classList.toggle("multi", multi);
+}
+$("tabSingle").addEventListener("click", () => setMode(false));
+$("tabMulti").addEventListener("click", () => setMode(true));
+
+update();
+renderRows();
+setMode(params.get("mode") === "multi");
+</script>
+</body>
+</html>
