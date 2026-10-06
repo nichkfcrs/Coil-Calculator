@@ -135,7 +135,7 @@
   .mt th { padding: 4px 3px; text-align: left !important; white-space: normal !important; vertical-align: bottom; line-height: 1.2; }
   .mt td { padding: 3px; border-bottom: 0; }
   .mt input, .mt select { padding: 7px 8px; min-width: 74px; }
-  .mt select { min-width: 150px; }
+  .mt select { min-width: 190px; }
   .mt td.o { padding: 3px 8px; text-align: right; }
   .mt th.o { text-align: right !important; padding-right: 8px; }
   .mt td.how { white-space: normal; text-align: left; font-weight: 400; font-size: 0.8rem; min-width: 130px; }
@@ -299,15 +299,31 @@
 <script>
 // ---- Edit this list to add or change materials (density in g/cm³) ----
 const MATERIALS = [
-  { name: "VM Zinc (titanium zinc)",   density: 7.18 },
-  { name: "Copper",                    density: 8.95 },
-  { name: "Aluminium",                 density: 2.70 },
-  { name: "Carbon / galvanised steel", density: 7.85 },
-  { name: "Stainless steel 304",       density: 7.93 },
-  { name: "Stainless steel 316",       density: 7.98 },
-  { name: "Brass",                     density: 8.50 },
-  { name: "Custom",                    density: null }
+  { name: "Aluminium Mill Finish",          density: 2.7 },
+  { name: "Brass",                          density: 8.95 },
+  { name: "Copper",                         density: 8.95 },
+  { name: "elZinc Advance",                 density: 7.22 },
+  { name: "Galvanised",                     density: 8.14 },
+  { name: "KME Copper",                     density: 8.95 },
+  { name: "MATT Colorbond",                 density: 8.06 },
+  { name: "METALLIC Colorbond",             density: 8.06 },
+  { name: "PREFA Aluminium",                density: 2.7 },
+  { name: "Stainless Steel 304",            density: 8.17 },
+  { name: "Stainless Steel 316",            density: 8.17 },
+  { name: "ULTRA Colorbond",                density: 8.06 },
+  { name: "VM Zinc PLUS",                   density: 7.22 },
+  { name: "XRW Colorbond",                  density: 8.06 },
+  { name: "Z600 Galvanised",                density: 8.5 },
+  { name: "Zinc Mill Finish",               density: 7.22 },
+  { name: "Zincalume",                      density: 7.98 },
+  { name: "Aluminium Perforated 5005",      density: 2.7 },
+  { name: "Zincalume Perforated",           density: 7.98 },
+  { name: "Stainless Steel 304 Perforated", density: 8.17 },
+  { name: "Copper Expanded Mesh",           density: 3.27 },
+  { name: "Zinc Mill Finish Expanded Mesh", density: 2.65 },
+  { name: "Custom",                         density: null }
 ];
+const DEFAULT_MATERIAL = "VM Zinc PLUS";   // material selected when the page opens
 const DEFAULT_GAP = "0.10";
 const TOLERANCE_KG = 5;
 
@@ -383,10 +399,18 @@ const fmt = (n, d = 0) => n.toLocaleString("en-AU", { minimumFractionDigits: d, 
 const signed = (n, d = 1) => (n > 0 ? "+" : n < 0 ? "−" : "") + fmt(Math.abs(n), d);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const matOptions = MATERIALS.map((m, i) => `<option value="${i}">${esc(m.name)}</option>`).join("");
-const matIndexForDensity = d => {
-  const g = toKgM3(parseFloat(d)) / 1000;
-  const i = MATERIALS.findIndex(m => m.density && Math.abs(m.density - g) < 1e-6);
+const DEFAULT_MAT = Math.max(0, MATERIALS.findIndex(m => m.name === DEFAULT_MATERIAL));
+// Several materials share a density, so keep the current choice when it still matches
+const matIndexForDensity = (d, current) => {
+  const g = toKgM3(parseFloat(d)) / 1000, same = m => m && m.density && Math.abs(m.density - g) < 1e-6;
+  if (same(MATERIALS[current])) return +current;
+  const i = MATERIALS.findIndex(same);
   return i >= 0 ? i : MATERIALS.length - 1;
+};
+const matIndexForName = name => {
+  const n = String(name || "").trim().toLowerCase(); if (!n) return -1;
+  const exact = MATERIALS.findIndex(m => m.name.toLowerCase() === n);
+  return exact >= 0 ? exact : MATERIALS.findIndex(m => m.name.toLowerCase().includes(n));
 };
 
 function flash(btn, text) {
@@ -401,13 +425,17 @@ function copyText(text, btn) {
 
 // =================== Single coil ===================
 $("material").innerHTML = matOptions;
-$("density").value = MATERIALS[0].density;
+$("material").value = DEFAULT_MAT;
+$("density").value = MATERIALS[DEFAULT_MAT].density;
 
 const params = new URLSearchParams(location.search);
 if (params.get("embed") === "1") document.body.classList.add("embed");
 FIELDS.forEach(k => { if (params.has(k)) $(k).value = params.get(k); });
 if (parseFloat($("density").value) > 100) $("density").value = parseFloat($("density").value) / 1000;
-$("material").value = matIndexForDensity($("density").value);
+if (matIndexForName(params.get("material")) >= 0) {
+  $("material").value = matIndexForName(params.get("material"));
+  if (!params.has("density") && MATERIALS[$("material").value].density) $("density").value = MATERIALS[$("material").value].density;
+} else $("material").value = matIndexForDensity($("density").value, $("material").value);
 
 function drawDiagram(id, od) {
   const R = 100, r = Math.max(2, Math.min(98, R * id / od));
@@ -491,7 +519,7 @@ $("material").addEventListener("change", () => {
   if (m.density) $("density").value = m.density; else $("density").focus();
   update();
 });
-$("density").addEventListener("input", () => { $("material").value = matIndexForDensity($("density").value); update(); });
+$("density").addEventListener("input", () => { $("material").value = matIndexForDensity($("density").value, $("material").value); update(); });
 FIELDS.filter(k => k !== "density").forEach(k => $(k).addEventListener("input", update));
 $("useGap").addEventListener("click", () => { if (suggestedGap !== null) { $("gap").value = suggestedGap; update(); } });
 
@@ -509,6 +537,7 @@ $("copy").addEventListener("click", e => {
 });
 $("link").addEventListener("click", e => {
   const p = new URLSearchParams();
+  p.set("material", MATERIALS[$("material").value].name);
   FIELDS.forEach(k => { if ($(k).value !== "") p.set(k, $(k).value); });
   copyText(location.origin + location.pathname + "?" + p.toString(), e.currentTarget);
 });
@@ -526,9 +555,9 @@ const COLS = [
   { k: "gap",       label: "Gap mm" },
   { k: "actual",    label: "Actual kg" }
 ];
-const STORE = "coilCalculatorRows";
+const STORE = "coilCalculatorRows2";
 const blankRow = from => ({
-  ref: "", mat: from ? from.mat : "0", density: from ? from.density : String(MATERIALS[0].density),
+  ref: "", mat: from ? from.mat : String(DEFAULT_MAT), density: from ? from.density : String(MATERIALS[DEFAULT_MAT].density),
   thickness: from ? from.thickness : "", width: from ? from.width : "", id: "", od: "", wraps: "",
   gap: from ? from.gap : DEFAULT_GAP, actual: ""
 });
@@ -594,7 +623,7 @@ $("mbody").addEventListener("input", ev => {
     const m = MATERIALS[row.mat];
     if (m.density) { row.density = String(m.density); tr.querySelector('[data-k="density"]').value = row.density; }
   } else if (k === "density") {
-    row.mat = String(matIndexForDensity(row.density)); tr.querySelector("select").value = row.mat;
+    row.mat = String(matIndexForDensity(row.density, row.mat)); tr.querySelector("select").value = row.mat;
   }
   calcRow(i); totals(); save();
 });
@@ -618,14 +647,14 @@ $("mbody").addEventListener("paste", ev => {
       const col = COLS[startCol + c]; if (!col) return;
       val = val.trim();
       if (col.k === "mat") {
-        const idx = MATERIALS.findIndex(m => val && m.name.toLowerCase().includes(val.toLowerCase()));
+        const idx = matIndexForName(val);
         if (idx >= 0) { rows[i].mat = String(idx); if (MATERIALS[idx].density) rows[i].density = String(MATERIALS[idx].density); }
       } else if (col.k === "ref") rows[i].ref = val;
       else {
         const n = val.replace(/,/g, "");
         if (n === "" || isNaN(parseFloat(n))) return;
         rows[i][col.k] = String(parseFloat(n));
-        if (col.k === "density") rows[i].mat = String(matIndexForDensity(n));
+        if (col.k === "density") rows[i].mat = String(matIndexForDensity(n, rows[i].mat));
       }
     });
   });
